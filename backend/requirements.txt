@@ -1,4 +1,7 @@
 Flask
+
 pytest
+
 pylint
+
 gunicorn # For production-ready deployment
