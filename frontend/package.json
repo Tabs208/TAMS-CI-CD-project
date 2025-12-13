@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "echo 'Frontend starting'",
-    "build": "echo 'Frontend built'",
+    "build": "mkdir -p build && echo 'Frontend built'",
     "test": "echo 'running jest tests'",
     "lint": "echo 'running eslint'"
   },
