@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-          cache-dependency-path: ${{ env.BACKEND_DIR }}/requirements.txt
+          cache-dependency-path: backend/requirements.txt
       
       - name: Install Dependencies (Backend)
         run: pip install -r requirements.txt
