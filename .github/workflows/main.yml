@@ -1,0 +1,157 @@
+# -----------------------------------------------------------
+# TAMS Continuous Integration/Continuous Deployment Workflow
+# File: .github/workflows/main.yml
+# -----------------------------------------------------------
+
+name: Full CI/CD Pipeline - TAMS
+
+# 1. Trigger (Commit Stage)
+on:
+  push:
+    branches:
+      - development
+  pull_request:
+    branches:
+      - development
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  FRONTEND_DIR: 'frontend'
+  BACKEND_DIR: 'backend'
+  IMAGE_TAG: ${{ github.sha }}
+  AWS_REGION: eu-central-1 # Frankfurt
+
+jobs:
+  # -----------------------------------------------------------
+  # Job 1: Backend CI (Python/Flask)
+  # -----------------------------------------------------------
+  backend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.BACKEND_DIR }}/requirements.txt
+      
+      - name: Install Dependencies (Backend)
+        run: pip install -r requirements.txt
+        working-directory: ${{ env.BACKEND_DIR }}
+
+      - name: Run PyTest Unit Tests
+        run: pytest
+        working-directory: ${{ env.BACKEND_DIR }}
+
+      - name: Run Pylint Static Analysis
+        run: pylint app.py
+        working-directory: ${{ env.BACKEND_DIR }}
+
+      # Build the Docker Image (Required for artifact/later CD push)
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t tams-backend:${{ env.IMAGE_TAG }} \
+          -f Dockerfile.backend \
+          .
+
+  # -----------------------------------------------------------
+  # Job 2: Frontend CI (React)
+  # -----------------------------------------------------------
+  frontend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
+
+      - name: Install Dependencies (Frontend)
+        run: npm ci
+        working-directory: ${{ env.FRONTEND_DIR }}
+
+      - name: Run ESLint
+        run: npm run lint
+        working-directory: ${{ env.FRONTEND_DIR }}
+      
+      - name: Run Jest Unit Tests
+        run: npm test
+        working-directory: ${{ env.FRONTEND_DIR }}
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t tams-frontend:${{ env.IMAGE_TAG }} \
+          -f Dockerfile.frontend \
+          .
+
+  # -----------------------------------------------------------
+  # Job 3: Continuous Delivery (CD) to Staging
+  # -----------------------------------------------------------
+  cd-deploy-staging:
+    runs-on: ubuntu-latest
+    # Requires CI jobs to pass before deployment starts
+    needs: [backend-ci, frontend-ci]
+    environment: staging # Placeholder for manual approval if configured
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. AWS Authentication (Uses secrets stored in GitHub)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 2. Infrastructure as Code (IaC) - Terraform Provisioning
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+      
+      - name: Terraform Init and Apply (Creates ECR and ECS Cluster)
+        run: |
+          terraform init
+          # Apply creates/updates resources defined in main.tf
+          terraform apply -auto-approve
+        working-directory: terraform
+
+      # 3. Continuous Delivery: Login and Push Images to AWS ECR
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      # Build and Push Backend Image (Uses ECR URI derived from project name)
+      - name: Build and Push Backend Image
+        env:
+          # Assumes ECR repo name is tams-app-staging-backend (based on terraform/main.tf)
+          ECR_REPOSITORY: tams-app-staging-backend
+        run: |
+          # Rebuild image using ECR tag structure
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} -f Dockerfile.backend .
+          # Push image to ECR
+          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+          
+      # Build and Push Frontend Image
+      - name: Build and Push Frontend Image
+        env:
+          ECR_REPOSITORY: tams-app-staging-frontend
+        run: |
+          # Rebuild image using ECR tag structure
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} -f Dockerfile.frontend .
+          # Push image to ECR
+          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+          
+      # 4. Deployment Placeholder (This is where the ECS Service update command would go)
+      - name: Deployment Completion Note
+        run: echo "Deployment of new images to Staging environment complete for tag ${{ env.IMAGE_TAG }}"
