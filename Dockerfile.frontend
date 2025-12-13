@@ -1,0 +1,29 @@
+# Dockerfile.frontend
+
+# Stage 1: Build the React application
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json and install dependencies
+COPY frontend/package.json ./frontend/
+COPY frontend/package-lock.json ./frontend/
+RUN npm install --prefix frontend
+
+# Copy all source code
+COPY frontend/ ./frontend/
+
+# Build the app (Creates a 'build' folder)
+RUN npm run build --prefix frontend
+
+# Stage 2: Serve the application using a lightweight web server (NGINX)
+FROM nginx:alpine
+
+# Copy the built output from the builder stage
+COPY --from=builder /app/frontend/build /usr/share/nginx/html
+
+# Expose the port (standard for Nginx)
+EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
