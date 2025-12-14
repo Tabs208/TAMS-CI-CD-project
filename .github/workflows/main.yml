@@ -1,3 +1,25 @@
+name: Full CI/CD Pipeline - TAMS
+# ... (on: and env: blocks)
+
+jobs:
+  # -----------------------------------------------------------
+  # Job 1: Backend CI (Python/Flask)
+  # -----------------------------------------------------------
+  backend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      # ... (rest of backend-ci job)
+
+  # -----------------------------------------------------------
+  # Job 2: Frontend CI (React)
+  # -----------------------------------------------------------
+  frontend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      # ... (contents of frontend-ci job)
+
 # -----------------------------------------------------------
   # Job 3: Continuous Delivery (CD) to Staging (FIXED)
   # -----------------------------------------------------------
