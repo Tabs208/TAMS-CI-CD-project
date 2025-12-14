@@ -111,7 +111,7 @@ jobs:
           terraform_version: 1.6.0
       
       # FIX: Temporary step to align state file and resolve RepositoryAlreadyExistsException
-      - name:TEMP FIX: Init and Import ECR Repositories into state
+      - name: TEMP FIX:Init and Import ECR Repositories into state
         id: import_ecr
         run: |
           # Initialize Terraform first
