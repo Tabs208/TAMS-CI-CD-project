@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # terraform/alb.tf
-# Defines the Application Load Balancer and Target Groups
+# Defines the Application Load Balancer and Target Groups (AZ FIX APPLIED)
 # -----------------------------------------------------------
 
 # 1. ALB Security Group
@@ -32,7 +32,9 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [aws_subnet.public.id] # ALB lives in public subnet
+  
+  # FIX: Must reference both public subnets (AZ 1 and AZ 2)
+  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id] 
 
   enable_deletion_protection = false
   tags = {

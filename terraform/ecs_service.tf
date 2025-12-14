@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # terraform/ecs_service.tf
-# Defines the ECS Services and Security Groups
+# Defines the ECS Services and Security Groups (AZ FIX APPLIED)
 # -----------------------------------------------------------
 
 # 1. ECS Service Security Group
@@ -43,7 +43,8 @@ resource "aws_ecs_service" "frontend" {
   desired_count   = 1 # Run 1 instance of the frontend
 
   network_configuration {
-    subnets          = [aws_subnet.private.id] # Tasks run in private subnet
+    # FIX: Tasks must run across multiple private subnets (AZ 1 and AZ 2)
+    subnets          = [aws_subnet.private_1.id, aws_subnet.private_2.id] 
     security_groups  = [aws_security_group.ecs_tasks_sg.id]
     assign_public_ip = true
   }
@@ -71,7 +72,8 @@ resource "aws_ecs_service" "backend" {
   desired_count   = 1 # Run 1 instance of the backend
 
   network_configuration {
-    subnets          = [aws_subnet.private.id] # Tasks run in private subnet
+    # FIX: Tasks must run across multiple private subnets (AZ 1 and AZ 2)
+    subnets          = [aws_subnet.private_1.id, aws_subnet.private_2.id] 
     security_groups  = [aws_security_group.ecs_tasks_sg.id]
     assign_public_ip = true
   }
