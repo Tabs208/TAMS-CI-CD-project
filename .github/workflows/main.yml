@@ -111,7 +111,7 @@ jobs:
           terraform_version: 1.6.0
       
       # -----------------------------------------------------------
-      # STEP 1: TEMP FIX - INIT and IMPORT STATE
+      # STEP 1: TEMP FIX - INIT and IMPORT STATE (ATOMIC BASH EXECUTION)
       # This temporary step clears the 'already exists' errors by adopting resources.
       # -----------------------------------------------------------
       - name: TEMP FIX - Initialize and Import State
