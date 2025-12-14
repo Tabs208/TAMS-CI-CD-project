@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (FINAL VERSION)
+# File: .github/workflows/main.yml (FINAL VERSION - SYNTAX FIXED)
 # -----------------------------------------------------------
 
 name: Full CI/CD Pipeline - TAMS
