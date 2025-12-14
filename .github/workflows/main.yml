@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (CORRECTED)
+# File: .github/workflows/main.yml (FINAL VERSION)
 # -----------------------------------------------------------
 
 name: Full CI/CD Pipeline - TAMS
@@ -31,7 +31,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # FIX 1: Removed caching that was causing "No file matched" error
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
@@ -64,7 +63,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # FIX 2: Removed caching that was causing "unable to cache dependencies" error
       - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
@@ -89,8 +87,7 @@ jobs:
           .
 
   # -----------------------------------------------------------
-  # Job 3: Continuous Delivery (CD) to Staging
-  # (No changes needed in this job, it will run once CI passes)
+  # Job 3: Continuous Delivery (CD) to Staging (FIXED)
   # -----------------------------------------------------------
   cd-deploy-staging:
     runs-on: ubuntu-latest
@@ -113,9 +110,23 @@ jobs:
         with:
           terraform_version: 1.6.0
       
-      - name: Terraform Init and Apply (Creates ECR and ECS Cluster)
+      # FIX: Temporary step to align state file and resolve RepositoryAlreadyExistsException
+      - name: TEMP FIX: Init and Import ECR Repositories into state
+        id: import_ecr
         run: |
+          # Initialize Terraform first
           terraform init
+          # Force import/adoption of ECR resources. The || true allows the step to pass 
+          # even if the import command fails (which it might if the ECR is truly empty)
+          # but for the runner's state, this usually resolves the conflict.
+          echo "Attempting to import existing ECR repositories to align state..."
+          terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
+          terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
+        working-directory: ./terraform
+        
+      - name: Run Terraform Apply (Creates ECS Cluster and updates state)
+        run: |
+          # Apply the remaining changes
           terraform apply -auto-approve
         working-directory: terraform
 
