@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (ULTIMATE FIXED VERSION)
+# File: .github/workflows/main.yml (ULTIMATE FIXED VERSION - TARGET APPLY)
 # -----------------------------------------------------------
 
 name: Full CI/CD Pipeline - TAMS
@@ -111,29 +111,29 @@ jobs:
           terraform_version: 1.6.0
       
       # -----------------------------------------------------------
-      # STEP 1: TEMP FIX - INIT and IMPORT STATE (ATOMIC BASH EXECUTION)
-      # This temporary step clears the 'already exists' errors by adopting resources.
+      # STEP 1: APPLY (ADOPT EXISTING RESOURCES VIA TARGET)
+      # This performs init and uses '-target' to force Terraform to adopt
+      # the resources that already exist in AWS but not in state.
+      # This is a clean, native Terraform way to fix the state errors.
       # -----------------------------------------------------------
-      - name: TEMP FIX - Initialize and Import State
-        shell: bash
+      - name: TEMP FIX - Adopt Existing Resources via Target
         run: |
-          echo "Running terraform init..."
           terraform init
-          
-          echo "Attempting to import existing resources silently to align state..."
-          # Use atomic bash commands for reliable execution and to prevent script failure
-          bash -c "terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true"
-          bash -c "terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true"
-          bash -c "terraform import aws_iam_role.ecs_task_execution_role tams-app-staging-execution-role || true"
-          bash -c "terraform import aws_cloudwatch_log_group.backend_log_group /ecs/tams-app-staging-backend || true"
-          bash -c "terraform import aws_cloudwatch_log_group.frontend_log_group /ecs/tams-app-staging-frontend || true"
-          bash -c "terraform import aws_lb_target_group.frontend tams-app-staging-frontend-tg || true"
-          bash -c "terraform import aws_lb_target_group.backend tams-app-staging-backend-tg || true"
+          # Use target to adopt the key resources that cause "already exists" errors
+          terraform apply -auto-approve \
+          -target aws_ecr_repository.frontend_repo \
+          -target aws_ecr_repository.backend_repo \
+          -target aws_iam_role.ecs_task_execution_role \
+          -target aws_cloudwatch_log_group.backend_log_group \
+          -target aws_cloudwatch_log_group.frontend_log_group \
+          -target aws_lb_target_group.frontend \
+          -target aws_lb_target_group.backend \
+          -var "image_tag=${{ env.IMAGE_TAG }}"
         working-directory: terraform
 
       # -----------------------------------------------------------
-      # STEP 2: APPLY (Performs the Final Deployment)
-      # This step should now run cleanly because the state is fixed.
+      # STEP 2: APPLY (Performs the Full Deployment)
+      # This step finishes the rest of the infrastructure (Subnets, ALB, ECS services).
       # -----------------------------------------------------------
       - name: Run Terraform Apply (Final Deployment)
         run: |
