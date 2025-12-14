@@ -110,25 +110,22 @@ jobs:
         with:
           terraform_version: 1.6.0
       
-      # FIX: Temporary step to align state file and resolve RepositoryAlreadyExistsException
+      # FIX Temporary step to align state file and resolve RepositoryAlreadyExistsException
       # THIS STEP MUST BE HERE TO PREVENT THE ECR REPOSITORY CREATION FAILURE
-      - name: TEMP FIX: Init and Import ECR Repositories into state
+      - name: TEMP FIX Init and Import ECR Repositories into state
         id: import_ecr
         run: |
-          # Initialize Terraform first
-          terraform init
-          # Force import/adoption of ECR resources to prevent "RepositoryAlreadyExists" error
-          echo "Attempting to import existing ECR repositories to align state..."
-          terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
-          terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
-        working-directory: ./terraform
+      # Initialize Terraform first
+         terraform init
+      # ... (rest of run block)
+    working-directory: ./terraform
         
-      - name: Run Terraform Apply (Creates Full Infra and updates state)
+ - name: Run Terraform Apply (Creates Full Infra and updates state)
         run: |
           # Apply the remaining changes (VPC, ALB, Task Defs, Services)
           terraform apply -auto-approve \
           -var "image_tag=${{ env.IMAGE_TAG }}"
-        working-directory: terraform
+    working-directory: terraform
 
       - name: Login to AWS ECR
         id: login-ecr
