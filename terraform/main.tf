@@ -28,7 +28,16 @@ resource "aws_ecs_cluster" "main_cluster" {
 
 # 5. Outputs (CRITICAL for pipeline to get URIs)
 # These outputs still reference the resources, whose definition is now in terraform_skip.tf
+# Add these resource blocks back into your main.tf file:
+resource "aws_ecr_repository" "frontend_repo" {
+  name = "${var.project_name}-${var.environment}-frontend"
+  image_tag_mutability = "MUTABLE"
+}
 
+resource "aws_ecr_repository" "backend_repo" {
+  name = "${var.project_name}-${var.environment}-backend"
+  image_tag_mutability = "MUTABLE"
+}
 
 # NOTE: A production-ready environment requires defining VPCs, Load Balancers, 
 # and ECS Services/Task Definitions, but the ECR and ECS Cluster resources are 
