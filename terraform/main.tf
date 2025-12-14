@@ -19,25 +19,25 @@ provider "aws" {
   # The AWS credentials will be sourced from environment variables (GitHub Secrets)
 }
 
-# 3. AWS ECR Repositories (To store your Docker Images)
-
-# Frontend Image Registry
-resource "aws_ecr_repository" "frontend_repo" {
-  # Naming convention: tams-app-staging-frontend
-  name = "${var.project_name}-${var.environment}-frontend"
-  image_tag_mutability = "MUTABLE" 
-}
-
-# Backend Image Registry
-resource "aws_ecr_repository" "backend_repo" {
-  # Naming convention: tams-app-staging-backend
-  name = "${var.project_name}-${var.environment}-backend"
-  image_tag_mutability = "MUTABLE"
-}
+# 3. AWS ECR Repositories (REMOVED: Now handled by terraform_skip.tf)
 
 # 4. AWS ECS Cluster (The container management service)
 resource "aws_ecs_cluster" "main_cluster" {
   name = "${var.project_name}-${var.environment}-cluster"
+}
+
+# 5. Outputs (CRITICAL for pipeline to get URIs)
+# These outputs still reference the resources, whose definition is now in terraform_skip.tf
+output "ecs_cluster_name" {
+  value = aws_ecs_cluster.main_cluster.name
+}
+
+output "frontend_ecr_uri" {
+  value = aws_ecr_repository.frontend_repo.repository_url
+}
+
+output "backend_ecr_uri" {
+  value = aws_ecr_repository.backend_repo.repository_url
 }
 
 # NOTE: A production-ready environment requires defining VPCs, Load Balancers, 
