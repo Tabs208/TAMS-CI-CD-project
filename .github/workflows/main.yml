@@ -116,20 +116,17 @@ jobs:
       - name: Deploy Infrastructure (VPC, ALB, ECS)
         shell: bash
         run: |
-          # The script is executed in one robust bash shell process
           IMAGE_TAG="${{ env.IMAGE_TAG }}"
 
-          echo "1. Initializing Terraform..."
+          # 1. Initialize
           terraform init
 
-          echo "2. Attempting to import existing ECR repositories to align state..."
-          # Import commands are robustly executed; failure suppressed by || true
-          terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
-          terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
+          # 2. Import resources silently; failure is expected and ignored
+          terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend >/dev/null 2>&1 || true
+          terraform import aws_ecr_repository.backend_repo tams-app-staging-backend >/dev/null 2>&1 || true
 
-          echo "3. Applying infrastructure changes (VPC, ALB, Task Defs, Services)..."
-          # Final apply uses the local shell variable, which is now defined.
-          apply -auto-approve -var "image_tag=$IMAGE_TAG"
+          # 3. Apply infrastructure changes
+          terraform apply -auto-approve -var "image_tag=$IMAGE_TAG"
         working-directory: terraform
 
       - name: Login to AWS ECR
