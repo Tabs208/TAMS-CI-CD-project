@@ -45,7 +45,7 @@ resource "aws_ecs_service" "frontend" {
   network_configuration {
     subnets          = [aws_subnet.private.id] # Tasks run in private subnet
     security_groups  = [aws_security_group.ecs_tasks_sg.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   # Link the service to the ALB
@@ -73,7 +73,7 @@ resource "aws_ecs_service" "backend" {
   network_configuration {
     subnets          = [aws_subnet.private.id] # Tasks run in private subnet
     security_groups  = [aws_security_group.ecs_tasks_sg.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   # Link the service to the ALB
