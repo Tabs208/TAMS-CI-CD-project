@@ -120,15 +120,15 @@ jobs:
           echo "Running terraform init..."
           terraform init
           
-          echo "Attempting to import existing resources to align state..."
-          # Force import of all resources known to exist but missing from state
-          terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
-          terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
-          terraform import aws_iam_role.ecs_task_execution_role tams-app-staging-execution-role || true
-          terraform import aws_cloudwatch_log_group.backend_log_group /ecs/tams-app-staging-backend || true
-          terraform import aws_cloudwatch_log_group.frontend_log_group /ecs/tams-app-staging-frontend || true
-          terraform import aws_lb_target_group.frontend tams-app-staging-frontend-tg || true
-          terraform import aws_lb_target_group.backend tams-app-staging-backend-tg || true
+          echo "Attempting to import existing resources silently to align state..."
+          # Use atomic bash commands for reliable execution and to prevent script failure
+          bash -c "terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true"
+          bash -c "terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true"
+          bash -c "terraform import aws_iam_role.ecs_task_execution_role tams-app-staging-execution-role || true"
+          bash -c "terraform import aws_cloudwatch_log_group.backend_log_group /ecs/tams-app-staging-backend || true"
+          bash -c "terraform import aws_cloudwatch_log_group.frontend_log_group /ecs/tams-app-staging-frontend || true"
+          bash -c "terraform import aws_lb_target_group.frontend tams-app-staging-frontend-tg || true"
+          bash -c "terraform import aws_lb_target_group.backend tams-app-staging-backend-tg || true"
         working-directory: terraform
 
       # -----------------------------------------------------------
