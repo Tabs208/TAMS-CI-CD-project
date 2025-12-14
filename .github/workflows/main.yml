@@ -1,5 +1,25 @@
+# -----------------------------------------------------------
+# TAMS Continuous Integration/Continuous Deployment Workflow
+# File: .github/workflows/main.yml (FINAL CORRECTED VERSION)
+# -----------------------------------------------------------
+
 name: Full CI/CD Pipeline - TAMS
-# ... (on: and env: blocks)
+
+on:
+  push:
+    branches:
+      - development
+  pull_request:
+    branches:
+      - development
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  FRONTEND_DIR: 'frontend'
+  BACKEND_DIR: 'backend'
+  IMAGE_TAG: ${{ github.sha }}
+  AWS_REGION: eu-central-1 # Frankfurt
 
 jobs:
   # -----------------------------------------------------------
@@ -10,7 +30,29 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      # ... (rest of backend-ci job)
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install Dependencies (Backend)
+        run: pip install -r requirements.txt
+        working-directory: ${{ env.BACKEND_DIR }}
+
+      - name: Run PyTest Unit Tests
+        run: pytest
+        working-directory: ${{ env.BACKEND_DIR }}
+
+      - name: Run Pylint Static Analysis
+        run: pylint app.py
+        working-directory: ${{ env.BACKEND_DIR }}
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t tams-backend:${{ env.IMAGE_TAG }} \
+          -f Dockerfile.backend \
+          .
 
   # -----------------------------------------------------------
   # Job 2: Frontend CI (React)
@@ -18,10 +60,34 @@ jobs:
   frontend-ci:
     runs-on: ubuntu-latest
     steps:
-      # ... (contents of frontend-ci job)
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-# -----------------------------------------------------------
-  # Job 3: Continuous Delivery (CD) to Staging (FIXED)
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Dependencies (Frontend)
+        run: npm install
+        working-directory: ${{ env.FRONTEND_DIR }}
+
+      - name: Run ESLint
+        run: npm run lint
+        working-directory: ${{ env.FRONTEND_DIR }}
+      
+      - name: Run Jest Unit Tests
+        run: npm test
+        working-directory: ${{ env.FRONTEND_DIR }}
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t tams-frontend:${{ env.IMAGE_TAG }} \
+          -f Dockerfile.frontend \
+          .
+
+  # -----------------------------------------------------------
+  # Job 3: Continuous Delivery (CD) to Staging (FINAL ATTEMPT)
   # -----------------------------------------------------------
   cd-deploy-staging:
     runs-on: ubuntu-latest
