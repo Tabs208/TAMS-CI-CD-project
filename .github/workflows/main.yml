@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (ULTIMATE FIXED VERSION - TARGET APPLY)
+# File: .github/workflows/main.yml (ULTIMATE FIXED VERSION - ATOMIC IMPORT)
 # -----------------------------------------------------------
 
 name: Full CI/CD Pipeline - TAMS
@@ -111,29 +111,47 @@ jobs:
           terraform_version: 1.6.0
       
       # -----------------------------------------------------------
-      # STEP 1: APPLY (ADOPT EXISTING RESOURCES VIA TARGET)
-      # This performs init and uses '-target' to force Terraform to adopt
-      # the resources that already exist in AWS but not in state.
-      # This is a clean, native Terraform way to fix the state errors.
+      # STEP 1: INITIALIZE (Must be the very first Terraform step)
       # -----------------------------------------------------------
-      - name: TEMP FIX - Adopt Existing Resources via Target
-        run: |
-          terraform init
-          # Use target to adopt the key resources that cause "already exists" errors
-          terraform apply -auto-approve \
-          -target aws_ecr_repository.frontend_repo \
-          -target aws_ecr_repository.backend_repo \
-          -target aws_iam_role.ecs_task_execution_role \
-          -target aws_cloudwatch_log_group.backend_log_group \
-          -target aws_cloudwatch_log_group.frontend_log_group \
-          -target aws_lb_target_group.frontend \
-          -target aws_lb_target_group.backend \
-          -var "image_tag=${{ env.IMAGE_TAG }}"
+      - name: Initialize Terraform
+        run: terraform init
         working-directory: terraform
 
       # -----------------------------------------------------------
-      # STEP 2: APPLY (Performs the Full Deployment)
-      # This step finishes the rest of the infrastructure (Subnets, ALB, ECS services).
+      # STEP 2-8: STATE ADOPTION (7 separate single-line imports)
+      # This fixes the "already exists" errors by adopting resources individually.
+      # -----------------------------------------------------------
+      - name: Import ECR Frontend
+        run: terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
+        working-directory: terraform
+
+      - name: Import ECR Backend
+        run: terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
+        working-directory: terraform
+
+      - name: Import IAM Role
+        run: terraform import aws_iam_role.ecs_task_execution_role tams-app-staging-execution-role || true
+        working-directory: terraform
+
+      - name: Import CloudWatch Log Group Backend
+        run: terraform import aws_cloudwatch_log_group.backend_log_group /ecs/tams-app-staging-backend || true
+        working-directory: terraform
+
+      - name: Import CloudWatch Log Group Frontend
+        run: terraform import aws_cloudwatch_log_group.frontend_log_group /ecs/tams-app-staging-frontend || true
+        working-directory: terraform
+
+      - name: Import Target Group Frontend
+        run: terraform import aws_lb_target_group.frontend tams-app-staging-frontend-tg || true
+        working-directory: terraform
+
+      - name: Import Target Group Backend
+        run: terraform import aws_lb_target_group.backend tams-app-staging-backend-tg || true
+        working-directory: terraform
+
+      # -----------------------------------------------------------
+      # STEP 9: APPLY (Performs the Full Deployment)
+      # This step should now run cleanly as the state is fully aligned.
       # -----------------------------------------------------------
       - name: Run Terraform Apply (Final Deployment)
         run: |
