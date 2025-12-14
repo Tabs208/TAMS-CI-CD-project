@@ -28,17 +28,7 @@ resource "aws_ecs_cluster" "main_cluster" {
 
 # 5. Outputs (CRITICAL for pipeline to get URIs)
 # These outputs still reference the resources, whose definition is now in terraform_skip.tf
-output "ecs_cluster_name" {
-  value = aws_ecs_cluster.main_cluster.name
-}
 
-output "frontend_ecr_uri" {
-  value = aws_ecr_repository.frontend_repo.repository_url
-}
-
-output "backend_ecr_uri" {
-  value = aws_ecr_repository.backend_repo.repository_url
-}
 
 # NOTE: A production-ready environment requires defining VPCs, Load Balancers, 
 # and ECS Services/Task Definitions, but the ECR and ECS Cluster resources are 
