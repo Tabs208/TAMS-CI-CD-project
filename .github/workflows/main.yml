@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (FINAL CORRECTED VERSION)
+# File: .github/workflows/main.yml (ULTIMATE FIXED VERSION)
 # -----------------------------------------------------------
 
 name: Full CI/CD Pipeline - TAMS
@@ -111,19 +111,17 @@ jobs:
           terraform_version: 1.6.0
       
       # -----------------------------------------------------------
-      # COMBINED DEPLOY STEP: Init, Import, and Apply (Resolves Stuck Jobs)
+      # STEP 1: TEMP FIX - INIT and IMPORT STATE
+      # This temporary step clears the 'already exists' errors by adopting resources.
       # -----------------------------------------------------------
-      - name: Deploy Infrastructure (VPC, ALB, ECS)
+      - name: TEMP FIX - Initialize and Import State
         shell: bash
         run: |
-          # Define image tag for shell script
-          IMAGE_TAG="${{ env.IMAGE_TAG }}"
-
-          # 1. Initialize
+          echo "Running terraform init..."
           terraform init
-
-          # 2. **TEMPORARY FULL IMPORT** (Must succeed to clear state errors)
-          # These imports will adopt existing resources (TGs, ECRs, IAM Roles) into state
+          
+          echo "Attempting to import existing resources to align state..."
+          # Force import of all resources known to exist but missing from state
           terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
           terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
           terraform import aws_iam_role.ecs_task_execution_role tams-app-staging-execution-role || true
@@ -131,10 +129,16 @@ jobs:
           terraform import aws_cloudwatch_log_group.frontend_log_group /ecs/tams-app-staging-frontend || true
           terraform import aws_lb_target_group.frontend tams-app-staging-frontend-tg || true
           terraform import aws_lb_target_group.backend tams-app-staging-backend-tg || true
+        working-directory: terraform
 
-          # 3. Apply infrastructure changes
-          # This should now apply the final changes (new subnets, ALB Listener/Rule)
-          terraform apply -auto-approve -var "image_tag=$IMAGE_TAG"
+      # -----------------------------------------------------------
+      # STEP 2: APPLY (Performs the Final Deployment)
+      # This step should now run cleanly because the state is fixed.
+      # -----------------------------------------------------------
+      - name: Run Terraform Apply (Final Deployment)
+        run: |
+          terraform apply -auto-approve \
+          -var "image_tag=${{ env.IMAGE_TAG }}"
         working-directory: terraform
 
       - name: Login to AWS ECR
