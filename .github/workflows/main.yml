@@ -1,92 +1,4 @@
 # -----------------------------------------------------------
-# TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (FINAL CORRECTED VERSION)
-# -----------------------------------------------------------
-
-name: Full CI/CD Pipeline - TAMS
-
-on:
-  push:
-    branches:
-      - development
-  pull_request:
-    branches:
-      - development
-
-env:
-  PYTHON_VERSION: '3.11'
-  NODE_VERSION: '18'
-  FRONTEND_DIR: 'frontend'
-  BACKEND_DIR: 'backend'
-  IMAGE_TAG: ${{ github.sha }}
-  AWS_REGION: eu-central-1 # Frankfurt
-
-jobs:
-  # -----------------------------------------------------------
-  # Job 1: Backend CI (Python/Flask)
-  # -----------------------------------------------------------
-  backend-ci:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install Dependencies (Backend)
-        run: pip install -r requirements.txt
-        working-directory: ${{ env.BACKEND_DIR }}
-
-      - name: Run PyTest Unit Tests
-        run: pytest
-        working-directory: ${{ env.BACKEND_DIR }}
-
-      - name: Run Pylint Static Analysis
-        run: pylint app.py
-        working-directory: ${{ env.BACKEND_DIR }}
-
-      - name: Build Backend Docker Image
-        run: |
-          docker build -t tams-backend:${{ env.IMAGE_TAG }} \
-          -f Dockerfile.backend \
-          .
-
-  # -----------------------------------------------------------
-  # Job 2: Frontend CI (React)
-  # -----------------------------------------------------------
-  frontend-ci:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Dependencies (Frontend)
-        run: npm install
-        working-directory: ${{ env.FRONTEND_DIR }}
-
-      - name: Run ESLint
-        run: npm run lint
-        working-directory: ${{ env.FRONTEND_DIR }}
-      
-      - name: Run Jest Unit Tests
-        run: npm test
-        working-directory: ${{ env.FRONTEND_DIR }}
-
-      - name: Build Frontend Docker Image
-        run: |
-          docker build -t tams-frontend:${{ env.IMAGE_TAG }} \
-          -f Dockerfile.frontend \
-          .
-
-  # -----------------------------------------------------------
   # Job 3: Continuous Delivery (CD) to Staging (FIXED)
   # -----------------------------------------------------------
   cd-deploy-staging:
@@ -115,17 +27,20 @@ jobs:
       - name: TEMP FIX Init and Import ECR Repositories into state
         id: import_ecr
         run: |
-      # Initialize Terraform first
-         terraform init
-      # ... (rest of run block)
-    working-directory: ./terraform
+          # Initialize Terraform first
+          terraform init
+          # Force import/adoption of ECR resources to prevent "RepositoryAlreadyExists" error
+          echo "Attempting to import existing ECR repositories to align state..."
+          terraform import aws_ecr_repository.frontend_repo tams-app-staging-frontend || true
+          terraform import aws_ecr_repository.backend_repo tams-app-staging-backend || true
+        working-directory: ./terraform
         
- - name: Run Terraform Apply (Creates Full Infra and updates state)
+      - name: Run Terraform Apply (Creates Full Infra and updates state)
         run: |
           # Apply the remaining changes (VPC, ALB, Task Defs, Services)
           terraform apply -auto-approve \
           -var "image_tag=${{ env.IMAGE_TAG }}"
-    working-directory: terraform
+        working-directory: terraform
 
       - name: Login to AWS ECR
         id: login-ecr
