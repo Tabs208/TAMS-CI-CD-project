@@ -42,3 +42,25 @@ resource "aws_ecr_repository" "backend_repo" {
 # NOTE: A production-ready environment requires defining VPCs, Load Balancers, 
 # and ECS Services/Task Definitions, but the ECR and ECS Cluster resources are 
 # sufficient to demonstrate the IaC and deployment concept for the paper.
+# -----------------------------------------------------------
+# New Resources for ECS Task Execution and Logging
+# -----------------------------------------------------------
+
+# 1. CloudWatch Log Groups (Containers will write logs here)
+resource "aws_cloudwatch_log_group" "backend_log_group" {
+  name = "/ecs/${var.project_name}-${var.environment}-backend"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "frontend_log_group" {
+  name = "/ecs/${var.project_name}-${var.environment}-frontend"
+  retention_in_days = 7
+}
+
+# 2. IAM Role Policy Attachment
+# Attaches the standard AWS policy allowing the ECS Task Execution Role 
+# (defined in task_definition.tf) to pull ECR images and write logs to CloudWatch.
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}

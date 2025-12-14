@@ -126,9 +126,11 @@ jobs:
         
       - name: Run Terraform Apply (Creates ECS Cluster and updates state)
         run: |
-          # Apply the remaining changes
-          terraform apply -auto-approve
+         # Apply the remaining changes
+         terraform apply -auto-approve \
+         -var "image_tag=${{ env.IMAGE_TAG }}" # <--- ADD THIS LINE
         working-directory: terraform
+          # Apply the remaining changes
 
       - name: Login to AWS ECR
         id: login-ecr

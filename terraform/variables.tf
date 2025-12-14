@@ -20,3 +20,10 @@ variable "environment" {
   type        = string
   default     = "staging"
 }
+# -----------------------------------------------------------
+# Variable for Docker Image Tag
+# -----------------------------------------------------------
+variable "image_tag" {
+  description = "The Docker image tag (e.g., git SHA) to use for the ECR images and Task Definitions."
+  type        = string
+}
