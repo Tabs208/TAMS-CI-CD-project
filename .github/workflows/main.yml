@@ -155,8 +155,7 @@ jobs:
       # -----------------------------------------------------------
       - name: Run Terraform Apply (Final Deployment)
         run: |
-          terraform apply -auto-approve \
-          -var "image_tag=${{ env.IMAGE_TAG }}"
+          terraform apply -auto-approve 
         working-directory: terraform
 
       - name: Login to AWS ECR
