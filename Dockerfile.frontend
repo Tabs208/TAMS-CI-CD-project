@@ -1,17 +1,27 @@
 # Stage 1: Build
 FROM node:18-alpine AS builder
 WORKDIR /app
+
+# 1. Install dependencies first (better caching)
 COPY frontend/package*.json ./frontend/
-# This will now install react-scripts
 RUN npm install --prefix frontend
+
+# 2. Copy source and build
 COPY frontend/ ./frontend/
-# This will now actually COMPILE your code into /app/frontend/build
-RUN npm run build --prefix frontend
+WORKDIR /app/frontend
+RUN npm run build
+
+# --- DEBUG: This will show us EXACTLY where the files are in the logs ---
+RUN ls -la build/
+# -----------------------------------------------------------------------
 
 # Stage 2: Serve
 FROM nginx:alpine
+
+# 3. Clean and Copy
 RUN rm -rf /usr/share/nginx/html/*
-# This folder will now contain your actual React app
+# We are now copying from the WORKDIR /app/frontend we set above
 COPY --from=builder /app/frontend/build /usr/share/nginx/html
+
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
