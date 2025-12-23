@@ -1,29 +1,33 @@
-# Dockerfile.frontend
-
 # Stage 1: Build the React application
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json and install dependencies
-COPY frontend/package.json ./frontend/
-COPY frontend/package-lock.json ./frontend/
+# Copy package files and install dependencies
+# Note: Using wildcard package*.json handles both package.json and package-lock.json
+COPY frontend/package*.json ./frontend/
 RUN npm install --prefix frontend
 
 # Copy all source code
 COPY frontend/ ./frontend/
 
-# Build the app (Creates a 'build' folder)
+# Build the app 
+# IMPORTANT: If you use Vite, this creates 'dist'. If CRA, it creates 'build'.
 RUN npm run build --prefix frontend
 
-# Stage 2: Serve the application using a lightweight web server (NGINX)
+# Stage 2: Serve the application using NGINX
 FROM nginx:alpine
 
-# Copy the built output from the builder stage
+# 1. Remove the default Nginx static assets (the "Welcome to nginx" page)
+RUN rm -rf /usr/share/nginx/html/*
+
+# 2. Copy the built output from the builder stage
+# FIX: If your project uses Vite, change '/build' to '/dist' below.
 COPY --from=builder /app/frontend/build /usr/share/nginx/html
 
-# Expose the port (standard for Nginx)
+# Optional: If you use React Router, you'll need a custom nginx config to prevent 404s on refresh.
+# COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
 
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
