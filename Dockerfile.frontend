@@ -1,33 +1,17 @@
-# Stage 1: Build the React application
+# Stage 1: Build
 FROM node:18-alpine AS builder
-
 WORKDIR /app
-
-# Copy package files and install dependencies
-# Note: Using wildcard package*.json handles both package.json and package-lock.json
 COPY frontend/package*.json ./frontend/
+# This will now install react-scripts
 RUN npm install --prefix frontend
-
-# Copy all source code
 COPY frontend/ ./frontend/
-
-# Build the app 
-# IMPORTANT: If you use Vite, this creates 'dist'. If CRA, it creates 'build'.
+# This will now actually COMPILE your code into /app/frontend/build
 RUN npm run build --prefix frontend
 
-# Stage 2: Serve the application using NGINX
+# Stage 2: Serve
 FROM nginx:alpine
-
-# 1. Remove the default Nginx static assets (the "Welcome to nginx" page)
 RUN rm -rf /usr/share/nginx/html/*
-
-# 2. Copy the built output from the builder stage
-# FIX: If your project uses Vite, change '/build' to '/dist' below.
+# This folder will now contain your actual React app
 COPY --from=builder /app/frontend/build /usr/share/nginx/html
-
-# Optional: If you use React Router, you'll need a custom nginx config to prevent 404s on refresh.
-# COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
-
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
