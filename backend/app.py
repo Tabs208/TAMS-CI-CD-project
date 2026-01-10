@@ -1,24 +1,35 @@
-# backend/app.py
-
 """
-TAMS Backend Placeholder Application Module.
-
-This module contains a basic Flask application to satisfy CI requirements.
+TAMS Backend Functional Application Module.
+This module integrates with the React frontend via path-based routing.
 """
-from flask import Flask
+from flask import Flask, jsonify
+from flask_cors import CORS
 
 # Initialize the Flask application
 app = Flask(__name__)
 
-# Define a simple route for a health check
+# Enable CORS so the React frontend can safely communicate with this API
+CORS(app)
+
 @app.route('/')
 def hello_world():
     """
-    Returns a simple health check message for the root URL.
+    Root health check for the backend service.
     """
     return 'TAMS Backend Health Check: OK'
 
+@app.route('/api/health')
+def health_check():
+    """
+    Returns a JSON status message to the React frontend.
+    The '/api' prefix matches the ALB path-based routing configuration.
+    """
+    return jsonify({
+        "status": "Healthy - Connected to Flask API",
+        "region": "Kenya-East",
+        "service": "TAMS-Telehealth-Core"
+    })
+
 if __name__ == '__main__':
-    # Line 22: Ensure NO trailing whitespace here.
-    app.run(debug=True)
-# Line 24: This must be the final, clean, blank line in the file.
+    # Listen on 0.0.0.0 so the Docker container can be reached within AWS
+    app.run(host='0.0.0.0', port=5000, debug=True)

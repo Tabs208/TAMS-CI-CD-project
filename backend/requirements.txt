@@ -1,7 +1,5 @@
 Flask
-
+flask-cors
 pytest
-
 pylint
-
-gunicorn # For production-ready deployment
+gunicorn
