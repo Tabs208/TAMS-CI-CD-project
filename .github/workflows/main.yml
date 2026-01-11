@@ -1,6 +1,6 @@
 # -----------------------------------------------------------
 # TAMS Continuous Integration/Continuous Deployment Workflow
-# File: .github/workflows/main.yml (FINAL CLEAN DEPLOYMENT VERSION)
+# File: .github/workflows/main.yml (UPDATED FOR MONOREPO STRUCTURE)
 # -----------------------------------------------------------
 
 name: Full CI/CD Pipeline - TAMS
@@ -46,14 +46,14 @@ jobs:
 
       - name: Run Pylint Static Analysis
         run: |
-         pylint backend/app.py --exit-zero
+         pylint app.py --exit-zero
         working-directory: ${{ env.BACKEND_DIR }}
 
       - name: Build Backend Docker Image
         run: |
           docker build -t tams-backend:${{ env.IMAGE_TAG }} \
-          -f Dockerfile.backend \
-          .
+          -f ${{ env.BACKEND_DIR }}/Dockerfile \
+          ./${{ env.BACKEND_DIR }}
 
   # -----------------------------------------------------------
   # Job 2: Frontend CI (React)
@@ -84,11 +84,11 @@ jobs:
       - name: Build Frontend Docker Image
         run: |
           docker build -t tams-frontend:${{ env.IMAGE_TAG }} \
-          -f Dockerfile.frontend \
-          .
+          -f ${{ env.FRONTEND_DIR }}/Dockerfile \
+          ./${{ env.FRONTEND_DIR }}
 
   # -----------------------------------------------------------
-  # Job 3: Continuous Delivery (CD) to Staging (CLEAN)
+  # Job 3: Continuous Delivery (CD) to Staging
   # -----------------------------------------------------------
   cd-deploy-staging:
     runs-on: ubuntu-latest
@@ -111,11 +111,6 @@ jobs:
         with:
           terraform_version: 1.6.0
       
-      # -----------------------------------------------------------
-      # STEP 1: Deploy Infrastructure (Init and Apply)
-      # This step will run cleanly now that the state has been fixed manually.
-      # It will create the remaining ECS/Networking resources.
-      # -----------------------------------------------------------
       - name: Run Terraform Init and Apply
         run: |
           terraform init
@@ -131,15 +126,16 @@ jobs:
         env:
           ECR_REPOSITORY: tams-app-staging-backend
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} -f Dockerfile.backend .
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
+          -f ${{ env.BACKEND_DIR }}/Dockerfile \
+          ./${{ env.BACKEND_DIR }}
           docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
           
       - name: Build and Push Frontend Image
         env:
           ECR_REPOSITORY: tams-app-staging-frontend
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} -f Dockerfile.frontend .
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} \
+          -f ${{ env.FRONTEND_DIR }}/Dockerfile \
+          ./${{ env.FRONTEND_DIR }}
           docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
-          
-      - name: Deployment Completion Note
-        run: echo "Deployment of new images to Staging environment complete for tag ${{ env.IMAGE_TAG }}"
