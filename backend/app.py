@@ -1,6 +1,6 @@
 """
 TAMS Backend - Phase 2: Functional Authentication and RBAC.
-This module implements User, Patient, and Doctor models with authentication.
+Updated with writable SQLite path for AWS Fargate compatibility.
 """
 import os
 from flask import Flask, jsonify, request
@@ -11,9 +11,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 CORS(app)
 
-# Database Configuration (SQLite for development/staging)
-# In production, this would point to an Amazon RDS instance
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tams.db'
+# --- INFRASTRUCTURE CONFIGURATION ---
+# Use 4 slashes for an absolute path in the writable /tmp directory
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tams.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'dev-secret-key-change-in-production'
 
@@ -46,15 +46,24 @@ class DoctorProfile(db.Model):
     specialty = db.Column(db.String(100))
     license_number = db.Column(db.String(50))
 
-# Initialize Database
+# --- SAFE INITIALIZATION ---
+# This ensures the database is created in the writable /tmp folder upon startup
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        db_status = "Active"
+    except Exception as e:
+        db_status = f"Error: {str(e)}"
 
 # --- ROUTES ---
 
 @app.route('/api/health')
 def health():
-    return jsonify({"status": "Healthy - Database Active", "region": "Kenya-East"})
+    """Returns detailed status to update the React 'System Status' bar."""
+    return jsonify({
+        "status": f"Healthy - Database {db_status}", 
+        "region": "Kenya-East"
+    })
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -72,25 +81,29 @@ def login():
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    data = request.get_json()
-    if User.query.filter_by(username=data.get('username')).first():
-        return jsonify({"error": "User already exists"}), 400
-    
-    new_user = User(username=data.get('username'), role=data.get('role'))
-    new_user.set_password(data.get('password'))
-    db.session.add(new_user)
-    db.session.commit()
-    
-    # Create corresponding profile
-    if new_user.role == 'patient':
-        profile = PatientProfile(user_id=new_user.id)
-    else:
-        profile = DoctorProfile(user_id=new_user.id)
-    
-    db.session.add(profile)
-    db.session.commit()
-    
-    return jsonify({"message": "User registered successfully"}), 201
+    try:
+        data = request.get_json()
+        if User.query.filter_by(username=data.get('username')).first():
+            return jsonify({"error": "User already exists"}), 400
+        
+        new_user = User(username=data.get('username'), role=data.get('role'))
+        new_user.set_password(data.get('password'))
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Create corresponding profile
+        if new_user.role == 'patient':
+            profile = PatientProfile(user_id=new_user.id)
+        else:
+            profile = DoctorProfile(user_id=new_user.id)
+        
+        db.session.add(profile)
+        db.session.commit()
+        
+        return jsonify({"message": "User registered successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
