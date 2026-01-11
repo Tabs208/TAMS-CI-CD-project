@@ -1,6 +1,7 @@
 """
-TAMS Backend - Production Grade
-Features: Role-Based Access, Writable Fargate Pathing, and Enhanced Logging.
+TAMS Backend - Production Grade (Phase 3)
+Features: Role-Based Access, Writable Fargate Pathing, Enhanced Logging, 
+and Persistence for Vitals & Prescriptions.
 """
 import os
 import logging
@@ -9,7 +10,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# 1. SETUP LOGGING (Critical for AWS CloudWatch debugging)
+# 1. SETUP LOGGING
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,10 @@ app = Flask(__name__)
 CORS(app)
 
 # 2. INFRASTRUCTURE CONFIGURATION
-# This logic auto-detects if it's in AWS or Local and picks the right writable path
+# Auto-detects writable /tmp directory for AWS Fargate compatibility 
 if os.path.exists('/tmp'):
-    # AWS Fargate path (Writable)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tams.db'
 else:
-    # Local development path
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tams.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -42,6 +41,19 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+# --- NEW CLINICAL DATA MODELS ---
+class Vitals(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    heart_rate = db.Column(db.String(10), nullable=False)
+    temperature = db.Column(db.String(10), nullable=False)
+
+class Prescription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    patient_name = db.Column(db.String(100), nullable=False)
+    medication_details = db.Column(db.Text, nullable=False)
 
 class PatientProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -72,11 +84,45 @@ def health():
         "region": "Kenya-East"
     })
 
+# --- NEW CLINICAL ROUTES ---
+@app.route('/api/vitals', methods=['POST'])
+def save_vitals():
+    try:
+        data = request.get_json()
+        new_vitals = Vitals(
+            patient_id=data.get('user_id'),
+            heart_rate=data.get('heartRate'),
+            temperature=data.get('temp')
+        )
+        db.session.add(new_vitals)
+        db.session.commit()
+        logger.info("Vitals logged for patient ID: %s", data.get('user_id'))
+        return jsonify({"message": "Vitals logged successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/prescriptions', methods=['POST'])
+def save_prescription():
+    try:
+        data = request.get_json()
+        new_presc = Prescription(
+            doctor_id=data.get('user_id'),
+            patient_name=data.get('patientName'),
+            medication_details=data.get('meds')
+        )
+        db.session.add(new_presc)
+        db.session.commit()
+        logger.info("Prescription issued by doctor ID: %s", data.get('user_id'))
+        return jsonify({"message": "Prescription issued successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
-    
     if user and user.check_password(data.get('password')):
         return jsonify({
             "message": "Login successful",
@@ -90,17 +136,14 @@ def login():
 def register():
     try:
         data = request.get_json()
-        # Check if user exists
         if User.query.filter_by(username=data.get('username')).first():
             return jsonify({"error": "User already exists"}), 400
         
-        # Create User
         new_user = User(username=data.get('username'), role=data.get('role'))
         new_user.set_password(data.get('password'))
         db.session.add(new_user)
         db.session.commit()
         
-        # Create corresponding profile
         if new_user.role == 'patient':
             profile = PatientProfile(user_id=new_user.id)
         else:
@@ -108,16 +151,12 @@ def register():
         
         db.session.add(profile)
         db.session.commit()
-        
-        logger.info("Successfully registered user: %s", new_user.username)
         return jsonify({"message": "User registered successfully"}), 201
-
     except Exception as e:
         db.session.rollback()
-        logger.error("Registration error: %s", str(e))
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 # 6. PRODUCTION ENTRY POINT
 if __name__ == '__main__':
-    # host='0.0.0.0' is mandatory for Docker/AWS connectivity
+    # host='0.0.0.0' is mandatory for Docker/AWS connectivity 
     app.run(host='0.0.0.0', port=5000, debug=False)
