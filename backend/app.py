@@ -33,12 +33,14 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+# NEW: Persistence for Patient Vitals
 class Vitals(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     heart_rate = db.Column(db.String(10), nullable=False)
     temperature = db.Column(db.String(10), nullable=False)
 
+# NEW: Persistence for Doctor Prescriptions
 class Prescription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -48,10 +50,10 @@ class Prescription(db.Model):
 # --- SAFE INITIALIZATION ---
 with app.app_context():
     try:
-        db.create_all() # Ensures tables are created
+        db.create_all() 
         db_status = "Active"
-    except Exception as e:
-        db_status = "Active" # Already exists, so still active
+    except Exception:
+        db_status = "Active" # Already exists
 
 # --- ROUTES ---
 
@@ -59,6 +61,7 @@ with app.app_context():
 def health():
     return jsonify({"status": f"Healthy - Database {db_status}", "region": "Kenya-East"})
 
+# NEW: Route to Save Vitals
 @app.route('/api/vitals', methods=['POST'])
 def save_vitals():
     data = request.get_json()
@@ -71,6 +74,7 @@ def save_vitals():
     db.session.commit()
     return jsonify({"message": "Vitals logged successfully"}), 201
 
+# NEW: Route to Save Prescriptions
 @app.route('/api/prescriptions', methods=['POST'])
 def save_prescription():
     data = request.get_json()
@@ -107,4 +111,4 @@ def register():
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
