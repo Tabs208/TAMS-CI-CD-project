@@ -1,6 +1,6 @@
 """
-TAMS Backend - Phase 3: Final Production Version
-Includes graceful error handling for duplicate users.
+TAMS Backend - Phase 3: Rural Accessibility & Clinical Persistence.
+Updated for Location-Based Specialist Search and Symptom Logging.
 """
 import os
 import logging
@@ -9,26 +9,25 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Logging for AWS CloudWatch
+# 1. LOGGING & APP CONFIG
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
 
-# Database path for AWS Fargate persistence
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tams.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'dev-secret-key-change-in-production'
+app.config['SECRET_KEY'] = 'dev-secret-key-99'
 
 db = SQLAlchemy(app)
 
-# --- MODELS ---
+# 2. MODELS
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False) # 'patient' or 'doctor'
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -36,44 +35,91 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+# MODIFIED: Doctor profile now includes location for rural search
+class DoctorProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    specialty = db.Column(db.String(100), default="General Practice")
+    location = db.Column(db.String(100), default="Nairobi") # e.g., 'Kisumu', 'Garissa'
+    is_available = db.Column(db.Boolean, default=True)
+
+# NEW: Symptom logger to support remote consultations
+class SymptomLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    # Signs and symptoms shared by the patient
+    description = db.Column(db.Text, nullable=False) 
+    timestamp = db.Column(db.DateTime, server_default=db.func.now())
+
 class Vitals(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    heart_rate = db.Column(db.String(10), nullable=False)
-    temperature = db.Column(db.String(10), nullable=False)
+    heart_rate = db.Column(db.String(10), nullable=False) # Mapigo ya moyo
+    temperature = db.Column(db.String(10), nullable=False) # Homa
 
-class Prescription(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    patient_name = db.Column(db.String(100), nullable=False)
-    medication_details = db.Column(db.Text, nullable=False)
-
-# --- INITIALIZATION ---
-with app.app_context():
-    try:
-        db.create_all()
-        db_status = "Active"
-    except Exception:
-        db_status = "Active"
-
-# --- ROUTES ---
+# 3. ROUTES
 @app.route('/api/health')
 def health():
-    return jsonify({"status": f"Healthy - Database {db_status}", "region": "Kenya-East"})
+    return jsonify({"status": "Healthy - Database Active", "region": "Kenya-East"})
+
+# NEW: Search Specialist by location and specialty
+@app.route('/api/search/specialists', methods=['GET'])
+def search_specialists():
+    specialty = request.args.get('specialty')
+    location = request.args.get('location')
+    
+    query = DoctorProfile.query
+    if specialty:
+        query = query.filter(DoctorProfile.specialty.ilike(f"%{specialty}%"))
+    if location:
+        query = query.filter(DoctorProfile.location.ilike(f"%{location}%"))
+    
+    results = query.all()
+    doctors = []
+    for d in results:
+        u = User.query.get(d.user_id)
+        doctors.append({
+            "name": f"Dr. {u.username}",
+            "specialty": d.specialty,
+            "location": d.location,
+            "available": d.is_available
+        })
+    return jsonify(doctors), 200
+
+# NEW: Log signs and symptoms for remote doctor review
+@app.route('/api/symptoms', methods=['POST'])
+def log_symptoms():
+    try:
+        data = request.get_json()
+        new_log = SymptomLog(
+            patient_id=data.get('user_id'),
+            description=data.get('description')
+        )
+        db.session.add(new_log)
+        db.session.commit()
+        return jsonify({"message": "Dalili zimehifadhiwa (Symptoms logged successfully)"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/register', methods=['POST'])
 def register():
     try:
         data = request.get_json()
-        # MODIFICATION: Explicit check to prevent IntegrityError
-        existing_user = User.query.filter_by(username=data.get('username')).first()
-        if existing_user:
-            return jsonify({"error": "This username is already taken. Please login or choose another."}), 400
+        if User.query.filter_by(username=data.get('username')).first():
+            return jsonify({"error": "User already exists"}), 400
         
         new_user = User(username=data.get('username'), role=data.get('role'))
         new_user.set_password(data.get('password'))
         db.session.add(new_user)
         db.session.commit()
+        
+        # Initialize specialized profile for doctors
+        if new_user.role == 'doctor':
+            profile = DoctorProfile(user_id=new_user.id)
+            db.session.add(profile)
+            db.session.commit()
+            
         return jsonify({"message": "User registered successfully"}), 201
     except Exception as e:
         db.session.rollback()
@@ -84,24 +130,17 @@ def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
     if user and user.check_password(data.get('password')):
-        return jsonify({"message": "Login successful", "role": user.role, "username": user.username, "id": user.id}), 200
-    return jsonify({"error": "Invalid username or password"}), 401
+        return jsonify({
+            "message": "Login successful", 
+            "role": user.role, 
+            "username": user.username, 
+            "id": user.id
+        }), 200
+    return jsonify({"error": "Invalid credentials"}), 401
 
-@app.route('/api/vitals', methods=['POST'])
-def save_vitals():
-    data = request.get_json()
-    new_vitals = Vitals(patient_id=data.get('user_id'), heart_rate=data.get('heartRate'), temperature=data.get('temp'))
-    db.session.add(new_vitals)
-    db.session.commit()
-    return jsonify({"message": "Vitals logged successfully"}), 201
-
-@app.route('/api/prescriptions', methods=['POST'])
-def save_prescription():
-    data = request.get_json()
-    new_presc = Prescription(doctor_id=data.get('user_id'), patient_name=data.get('patientName'), medication_details=data.get('meds'))
-    db.session.add(new_presc)
-    db.session.commit()
-    return jsonify({"message": "Prescription issued successfully"}), 201
+# 4. INITIALIZATION
+with app.app_context():
+    db.create_all()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
