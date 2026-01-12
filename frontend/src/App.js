@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-// --- MAIN APP COMPONENT ---
 function App() {
   const [user, setUser] = useState(null); 
   const [isRegistering, setIsRegistering] = useState(false); 
@@ -26,13 +25,14 @@ function App() {
       .then(async res => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server Error');
-        return data;
+        return data; 
       })
       .then(data => {
         if (isRegistering) {
           setMessage("Registered! Please login.");
           setIsRegistering(false);
         } else {
+          // Setting user here with the database-confirmed role
           setUser(data);
           setMessage('');
         }
@@ -73,72 +73,44 @@ function App() {
   );
 }
 
-// --- UPDATED PATIENT DASHBOARD ---
 const PatientDashboard = ({ user }) => {
   const [vitals, setVitals] = useState({ heartRate: '', temp: '' });
   const [symptomText, setSymptomText] = useState("");
   const [searchParams, setSearchParams] = useState({ specialty: '', location: '' });
   const [searchResults, setSearchResults] = useState([]);
 
-  // Log Body Vitals (BPM / Temp)
   const logVitals = () => {
-    fetch('/api/vitals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...vitals, user_id: user.id }),
-    }).then(() => alert("Vitals Saved Successfully"));
+    fetch('/api/vitals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...vitals, user_id: user.id }) }).then(() => alert("Vitals Saved"));
   };
 
-  // NEW: Share Symptoms (Remote Consultation)
   const shareSymptoms = () => {
-    fetch('/api/symptoms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: user.id, description: symptomText }),
-    }).then(() => alert("Symptoms shared with the medical team."));
+    fetch('/api/symptoms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, description: symptomText }) }).then(() => alert("Symptoms Shared"));
   };
 
-  // NEW: Search for Specialist by location/specialty
   const findSpecialist = () => {
-    fetch(`/api/search/specialists?specialty=${searchParams.specialty}&location=${searchParams.location}`)
-      .then(res => res.json())
-      .then(data => setSearchResults(data));
+    fetch(`/api/search/specialists?specialty=${searchParams.specialty}&location=${searchParams.location}`).then(res => res.json()).then(data => setSearchResults(data));
   };
 
   return (
     <div style={{ textAlign: 'left', marginTop: '20px' }}>
-      <h2 style={{ color: '#0d47a1' }}>Welcome, {user.username}</h2>
-      
-      {/* Vitals Section */}
+      <h2 style={{ color: '#0d47a1' }}>Patient Portal: {user.username}</h2>
       <div style={cardStyle}>
         <h4>Log Daily Vitals</h4>
         <input placeholder="Heart Rate (BPM)" style={miniInputStyle} onChange={e => setVitals({...vitals, heartRate: e.target.value})} />
         <input placeholder="Temp (°C)" style={miniInputStyle} onChange={e => setVitals({...vitals, temp: e.target.value})} />
-        <button onClick={logVitals} style={{...btnStyle, padding: '8px', fontSize: '14px'}}>Save Vitals</button>
+        <button onClick={logVitals} style={miniBtnStyle}>Save Vitals</button>
       </div>
-
-      {/* Symptom Tracker */}
       <div style={cardStyle}>
-        <h4>Describe Symptoms (Swahili/English)</h4>
-        <textarea 
-          placeholder="Nahisi homa na kizunguzungu... (Describe your signs and symptoms here)" 
-          style={{ width: '100%', height: '60px', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}
-          onChange={(e) => setSymptomText(e.target.value)}
-        />
-        <button onClick={shareSymptoms} style={{...btnStyle, padding: '8px', fontSize: '14px', backgroundColor: '#34495e'}}>Send to Doctor</button>
+        <h4>Describe Symptoms</h4>
+        <textarea style={{ width: '100%', height: '50px' }} onChange={(e) => setSymptomText(e.target.value)} />
+        <button onClick={shareSymptoms} style={miniBtnStyle}>Send to Doctor</button>
       </div>
-
-      {/* Specialist Search */}
       <div style={cardStyle}>
-        <h4>Find a Specialist Near You</h4>
-        <input placeholder="Specialty (e.g. Cardiologist)" style={miniInputStyle} onChange={e => setSearchParams({...searchParams, specialty: e.target.value})} />
-        <input placeholder="Location (e.g. Kisumu)" style={miniInputStyle} onChange={e => setSearchParams({...searchParams, location: e.target.value})} />
-        <button onClick={findSpecialist} style={{...btnStyle, padding: '8px', fontSize: '14px', backgroundColor: '#3498db'}}>Search Specialists</button>
-        {searchResults.length > 0 && (
-          <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-            {searchResults.map((doc, i) => <li key={i}>{doc.name} - {doc.specialty} ({doc.location})</li>)}
-          </ul>
-        )}
+        <h4>Find a Specialist</h4>
+        <input placeholder="Specialty" style={miniInputStyle} onChange={e => setSearchParams({...searchParams, specialty: e.target.value})} />
+        <input placeholder="Location" style={miniInputStyle} onChange={e => setSearchParams({...searchParams, location: e.target.value})} />
+        <button onClick={findSpecialist} style={{...miniBtnStyle, backgroundColor: '#3498db'}}>Search</button>
+        <ul>{searchResults.map((doc, i) => <li key={i}>{doc.name} - {doc.specialty} ({doc.location})</li>)}</ul>
       </div>
     </div>
   );
@@ -147,29 +119,25 @@ const PatientDashboard = ({ user }) => {
 const DoctorDashboard = ({ user }) => {
   const [presc, setPresc] = useState({ patientName: '', meds: '' });
   const issueMeds = () => {
-    fetch('/api/prescriptions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...presc, user_id: user.id }),
-    }).then(() => alert("Prescription Issued Successfully"));
+    fetch('/api/prescriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...presc, user_id: user.id }) }).then(() => alert("Issued"));
   };
   return (
-    <div style={{ backgroundColor: '#f1fdf4', padding: '20px', borderRadius: '10px', marginTop: '20px', textAlign: 'left' }}>
-      <h3 style={{ color: '#1b5e20' }}>Doctor Portal: Dr. {user.username}</h3>
-      <div style={{ background: 'white', padding: '15px', borderRadius: '8px' }}>
-        <h4>Issue Digital Prescription</h4>
+    <div style={{ textAlign: 'left', marginTop: '20px' }}>
+      <h3>Doctor Portal: Dr. {user.username}</h3>
+      <div style={cardStyle}>
+        <h4>Issue Prescription</h4>
         <input placeholder="Patient Name" style={miniInputStyle} onChange={e => setPresc({...presc, patientName: e.target.value})} />
-        <textarea placeholder="Medication Details" style={miniInputStyle} onChange={e => setPresc({...presc, meds: e.target.value})} />
-        <button onClick={issueMeds} style={{...btnStyle, backgroundColor: '#4caf50', padding: '8px', fontSize: '14px'}}>Issue Prescription</button>
+        <textarea style={{ width: '100%', height: '50px' }} onChange={e => setPresc({...presc, meds: e.target.value})} />
+        <button onClick={issueMeds} style={{...miniBtnStyle, backgroundColor: '#4caf50'}}>Issue</button>
       </div>
     </div>
   );
 };
 
-// --- STYLING ---
 const inputStyle = { padding: '12px', borderRadius: '8px', border: '1px solid #dfe6e9', width: '100%', boxSizing: 'border-box' };
 const miniInputStyle = { padding: '10px', borderRadius: '6px', border: '1px solid #eee', width: '100%', marginBottom: '10px', boxSizing: 'border-box' };
 const btnStyle = { padding: '12px', borderRadius: '8px', border: 'none', backgroundColor: '#2c3e50', color: 'white', fontWeight: 'bold', cursor: 'pointer', width: '100%' };
-const cardStyle = { background: 'white', padding: '15px', borderRadius: '12px', marginTop: '20px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', borderLeft: '4px solid #2196f3' };
+const miniBtnStyle = { ...btnStyle, padding: '8px', fontSize: '14px' };
+const cardStyle = { background: 'white', padding: '15px', borderRadius: '12px', marginTop: '20px', borderLeft: '4px solid #2196f3' };
 
 export default App;
