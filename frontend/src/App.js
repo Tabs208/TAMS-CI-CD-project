@@ -32,7 +32,7 @@ function App() {
           setMessage("Registered! Please login.");
           setIsRegistering(false);
         } else {
-          // Setting user here with the database-confirmed role
+          // Setting user here with the database-confirmed role sure
           setUser(data);
           setMessage('');
         }
