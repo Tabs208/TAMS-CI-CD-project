@@ -42,7 +42,7 @@ function App() {
 
   return (
     <div style={{ fontFamily: 'Segoe UI', maxWidth: '600px', margin: '50px auto', textAlign: 'center', padding: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', borderRadius: '15px', backgroundColor: '#fff' }}>
-      <h1> Telehealth</h1>
+      <h1> TAMS Telehealth</h1>
       <div style={{ backgroundColor: backendStatus.includes('Healthy') ? '#e8f5e9' : '#ffebee', padding: '5px', borderRadius: '20px', fontSize: '11px', marginBottom: '20px' }}>
         ● System: {backendStatus}
       </div>
