@@ -30,7 +30,7 @@ This project implements a robust Continuous Integration and Continuous Deploymen
 **Monitoring:** Amazon CloudWatch for real-time application and deployment logs.
 
 # Testing and Validation
-**System Health:** Check the status bar on the home page. It must show "● System: Healthy - Database Active" to confirm the backend and database are synchronized.
+**System Health:** Check the status bar on the home page. It must show **"● System: Healthy - Database Active"** to confirm the backend and database are synchronized.
 
 **Specialist Search:** Test the rural accessibility feature by searching for a "Specialty" in a specific Kenyan "Location" (e.g., Kisumu).
 
