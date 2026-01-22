@@ -1,0 +1,12 @@
+# Ignore the local SQLite database
+tams.db
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore local environment files
+.env
+venv/

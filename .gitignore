@@ -1,0 +1,19 @@
+# Node/Frontend
+# Ignore all dependencies and build artifacts
+frontend/node_modules/
+frontend/build/
+.npm
+npm-debug.log
+
+# Python/Backend
+# Ignore all dependencies and temporary files
+backend/__pycache__/
+backend/.pytest_cache/
+backend/venv/
+backend/*.pyc
+
+# Terraform State Files (CRITICAL to prevent conflicts in CI/CD)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
